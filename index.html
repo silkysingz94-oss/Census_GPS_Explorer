@@ -1,0 +1,988 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GBoS GEOAI | Census & GPS Explorer</title>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+
+<style>
+:root{
+ --navy:#102a43;--blue:#1769aa;--teal:#078080;--gold:#e5a000;
+ --bg:#f1f5f9;--border:#dbe3ed;--text:#243447;--muted:#64748b;
+ --green:#16804a;--red:#c0392b;--purple:#7c3aed;--white:#fff
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:13px Arial,Helvetica,sans-serif}
+header{
+ background:linear-gradient(120deg,#102a43,#1769aa);color:#fff;padding:16px 20px;
+ display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap
+}
+header h1{font-size:21px;margin:0 0 5px}
+header p{margin:0;color:#dbeafe;line-height:1.5}
+.header-tag{border:1px solid #ffffff55;border-radius:8px;padding:9px 12px;font-size:11px;line-height:1.6}
+.toolbar{display:flex;gap:7px;flex-wrap:wrap;background:#fff;padding:10px;border-bottom:1px solid var(--border)}
+button{
+ border:0;border-radius:5px;padding:8px 11px;background:var(--blue);color:white;
+ font-size:11px;font-weight:bold;cursor:pointer
+}
+button:hover{filter:brightness(.93)}
+button.secondary{background:#e8eef5;color:#243447}
+button.green{background:var(--green)}
+button.orange{background:#b86a00}
+button.red{background:var(--red)}
+button.purple{background:var(--purple)}
+button:disabled{opacity:.45;cursor:not-allowed}
+.layout{
+ display:grid;grid-template-columns:minmax(245px,1fr) minmax(350px,1.4fr) minmax(300px,1.15fr);
+ gap:10px;padding:10px;align-items:stretch
+}
+.panel{min-width:0;background:#fff;border:1px solid var(--border);border-radius:8px;overflow:hidden}
+.panel-heading{background:#edf3f9;padding:11px 13px;border-bottom:1px solid var(--border);font-weight:bold;color:var(--navy)}
+.panel-body{padding:12px}
+.scroll-panel{max-height:calc(100vh - 165px);overflow-y:auto}
+.section{border-bottom:1px solid #e7edf4;padding-bottom:12px;margin-bottom:12px}
+.section:last-child{border-bottom:0}
+.section h3{font-size:12px;margin:0 0 10px;color:var(--navy)}
+label{display:block;font-size:11px;font-weight:bold;color:#475569;margin:9px 0 4px}
+input,select{
+ width:100%;padding:8px;border:1px solid #cbd5e1;border-radius:5px;background:#fff;color:var(--text);font-size:12px
+}
+input[type=file]{font-size:10px}
+input[type=checkbox],input[type=radio]{width:auto}
+.small{font-size:11px;color:var(--muted);line-height:1.5}
+.status{border-radius:5px;padding:8px;background:#eff6ff;color:#1d4ed8;line-height:1.5;margin:7px 0;overflow-wrap:anywhere}
+.status.error{background:#fef2f2;color:#991b1b}
+.status.success{background:#ecfdf5;color:#166534}
+.status.warning{background:#fffbeb;color:#92400e}
+.button-row{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.button-row button{flex:1}
+#map{height:calc(100vh - 255px);min-height:400px;width:100%;background:#e7edf4}
+.map-controls{display:flex;gap:6px;flex-wrap:wrap;padding:8px;border-bottom:1px solid var(--border)}
+.map-controls select{min-width:100px;flex:1}
+.map-footer{padding:9px;border-top:1px solid var(--border)}
+.legend-title{font-weight:bold;color:var(--navy);margin-bottom:7px}
+.legend-items{display:flex;gap:10px;flex-wrap:wrap}
+.legend-item{display:flex;align-items:center;gap:5px;font-size:10px}
+.swatch{width:12px;height:12px;border-radius:2px;border:1px solid #64748b;display:inline-block}
+.kpi-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.kpi{padding:10px;border:1px solid var(--border);border-radius:7px;background:#f8fafc;min-width:0}
+.kpi .label{font-size:10px;color:var(--muted);font-weight:bold}
+.kpi .value{font-size:19px;font-weight:bold;color:var(--navy);margin-top:5px;overflow-wrap:anywhere}
+.kpi .sub{font-size:10px;color:var(--muted);margin-top:4px}
+.chart-box{height:300px;position:relative;border:1px solid var(--border);border-radius:7px;padding:8px;margin:8px 0}
+.chart-box canvas{width:100%!important;height:100%!important}
+.chart-caption{font-size:10px;color:var(--muted);line-height:1.6;margin:5px 0 9px}
+.stats-table,.data-table{width:100%;border-collapse:collapse;font-size:11px}
+.stats-table td,.stats-table th,.data-table td,.data-table th{border:1px solid var(--border);padding:7px;text-align:left}
+.stats-table th,.data-table th{background:#edf3f9;position:sticky;top:0}
+.table-wrap{max-height:270px;overflow:auto}
+.badge{display:inline-block;border-radius:4px;background:#e8eef5;padding:3px 6px;font-size:10px;margin:2px}
+.widget-card{border:1px solid var(--border);padding:10px;border-radius:7px;background:#fafcff;margin:7px 0}
+.widget-title{font-weight:bold;color:var(--navy);margin-bottom:6px}
+.gps-value{font-family:Consolas,monospace;font-size:12px;overflow-wrap:anywhere}
+footer{margin:0 10px 12px;background:#102a43;color:#e2e8f0;padding:14px;border-radius:8px;font-size:11px;line-height:1.7}
+footer strong{color:#fff}
+@media(max-width:1100px){
+ .layout{grid-template-columns:minmax(240px,1fr) minmax(300px,1.2fr)}
+ .analytics-panel{grid-column:1/-1}.scroll-panel{max-height:none}#map{height:500px}
+}
+@media(max-width:700px){
+ .layout{grid-template-columns:1fr;padding:7px}.analytics-panel{grid-column:auto}
+ .scroll-panel{max-height:none}#map{height:430px;min-height:350px}
+}
+@media print{
+ .toolbar,.controls-panel,.map-controls,button,input,select{display:none!important}
+ .layout{display:block}.panel{margin-bottom:10px;break-inside:avoid}
+ .scroll-panel{max-height:none;overflow:visible}#map{height:350px}
+ footer{background:white;color:#111;border:1px solid #ccc}
+}
+</style>
+</head>
+<body>
+
+<header>
+ <div>
+  <h1>GBoS GEOAI | ADVANCED CENSUS & GPS EXPLORER</h1>
+  <p>The Gambia · Census geography · Settlement statistics · Interactive comparisons</p>
+ </div>
+ <div class="header-tag"><strong>GEOSPATIAL ANALYTICS</strong><br>Interactive mapping · GPS · Statistics · Data exports</div>
+</header>
+
+<div class="toolbar">
+ <button onclick="document.getElementById('eaFile').click()">Load EA GeoJSON</button>
+ <button onclick="document.getElementById('settlementFile').click()">Load Settlement CSV</button>
+ <button onclick="document.getElementById('districtFile').click()">Load District CSV</button>
+ <button class="green" onclick="requestGPS()">Get my GPS location</button>
+ <button class="secondary" onclick="downloadFilteredEAs()">Export filtered GeoJSON</button>
+ <button class="secondary" onclick="downloadSummary()">Export statistics CSV</button>
+ <button class="secondary" onclick="downloadAllData()">Export dashboard JSON</button>
+ <button class="secondary" onclick="window.print()">Print / Save PDF</button>
+ <button class="red" onclick="resetDashboard()">Reset filters</button>
+</div>
+
+<input id="eaFile" type="file" accept=".json,.geojson,application/json" hidden>
+<input id="settlementFile" type="file" accept=".csv,text/csv" hidden>
+<input id="districtFile" type="file" accept=".csv,text/csv" hidden>
+
+<div class="layout">
+
+<!-- LEFT PANEL -->
+<section class="panel controls-panel">
+ <div class="panel-heading">1. Controls & Interactive Widgets</div>
+ <div class="panel-body scroll-panel">
+
+  <div class="section">
+   <h3>DATA SOURCES — AUTOMATIC REPOSITORY LOADING</h3>
+   <div class="small">On GitHub Pages, the dashboard automatically looks for <b>Census_EAs_Geo.json</b>, <b>District_Sex_Ratio.csv</b>, and <b>Settlement_Sex_Ratio.csv</b> in the same repository folder as index.html. Manual uploads remain available. Only publish data you are authorised to share.</div>
+   <div id="repoDataStatus" class="status">Checking for repository datasets…</div>
+   <label>Enumeration Area GeoJSON</label>
+   <input id="eaInput" type="file" accept=".json,.geojson">
+   <div id="eaStatus" class="status">Waiting for EA GeoJSON.</div>
+   <label>Settlement Sex Ratio CSV</label>
+   <input id="settlementInput" type="file" accept=".csv">
+   <div id="settlementStatus" class="status">Waiting for settlement CSV.</div>
+   <label>District Sex Ratio CSV</label>
+   <input id="districtInput" type="file" accept=".csv">
+   <div id="districtStatus" class="status">Waiting for district CSV.</div>
+   <div class="small">Files are processed locally in this browser.</div>
+  </div>
+
+  <div class="section">
+   <h3>CASCADE FILTER WIDGETS</h3>
+   <label for="lga">LGA / Municipality</label>
+   <select id="lga"><option value="">All LGAs</option></select>
+   <label for="district">District</label>
+   <select id="district"><option value="">All districts</option></select>
+   <label for="ward">Ward</label>
+   <select id="ward"><option value="">All wards</option></select>
+   <label for="searchEA">Search EA / ward / district</label>
+   <input id="searchEA" placeholder="Type to filter the map..." type="search">
+   <label style="display:flex;gap:7px;align-items:center"><input type="checkbox" id="autoZoom" checked> Zoom to selected geography</label>
+   <div id="filterStatus" class="status">Load EA data to activate selectors.</div>
+   <div class="button-row">
+    <button onclick="refreshDashboard(true)">Apply filters</button>
+    <button class="secondary" onclick="clearFilters()">Clear filters</button>
+   </div>
+  </div>
+
+  <div class="section">
+   <h3>MAP WIDGETS</h3>
+   <label for="mapMetric">Map thematic layer</label>
+   <select id="mapMetric">
+    <option value="boundary">EA boundaries</option>
+    <option value="population">Population</option>
+    <option value="households">Households</option>
+    <option value="density">Population density</option>
+   </select>
+   <label for="basemap">Basemap</label>
+   <select id="basemap">
+    <option value="street">Street</option>
+    <option value="light">Light</option>
+    <option value="satellite">Satellite imagery</option>
+    <option value="terrain">Terrain</option>
+   </select>
+   <label for="boundaryStyle">Boundary style</label>
+   <select id="boundaryStyle">
+    <option value="standard">Standard</option>
+    <option value="bold">Bold outline</option>
+    <option value="filled">Filled polygons</option>
+   </select>
+   <div class="button-row">
+    <button class="secondary" onclick="fitSelection()">Zoom to selection</button>
+    <button class="secondary" onclick="zoomGambia()">Zoom to The Gambia</button>
+   </div>
+  </div>
+
+  <div class="section">
+   <h3>GPS LOCATION WIDGET</h3>
+   <div class="widget-card">
+    <div class="widget-title">My current position</div>
+    <div class="small">Press the button to request permission from your browser. Location works on HTTPS or localhost in supported browsers.</div>
+    <div class="button-row">
+     <button class="green" onclick="requestGPS()">Get GPS</button>
+     <button class="secondary" onclick="clearGPS()">Clear GPS</button>
+    </div>
+    <div id="gpsStatus" class="status">GPS has not been requested.</div>
+    <label>Latitude</label>
+    <div id="gpsLat" class="gps-value">—</div>
+    <label>Longitude</label>
+    <div id="gpsLon" class="gps-value">—</div>
+    <label>Accuracy</label>
+    <div id="gpsAccuracy" class="gps-value">—</div>
+    <label>Timestamp</label>
+    <div id="gpsTime" class="gps-value">—</div>
+    <div class="button-row">
+     <button class="secondary" onclick="copyGPS()">Copy coordinates</button>
+     <button class="secondary" onclick="exportGPS()">Export GPS CSV</button>
+    </div>
+   </div>
+   <div class="small">GPS coordinates can be sensitive. Only request, save or share them when appropriate.</div>
+  </div>
+
+  <div class="section">
+   <h3>CHART WIDGETS</h3>
+   <label for="chartType">Visualization type</label>
+   <select id="chartType">
+    <option value="bar">Bar chart</option>
+    <option value="line">Line chart</option>
+    <option value="doughnut">Doughnut chart</option>
+    <option value="pie">Pie chart</option>
+    <option value="polarArea">Polar area</option>
+    <option value="radar">Radar chart</option>
+    <option value="scatter">Scatter plot</option>
+   </select>
+   <label for="metricA">Primary metric</label>
+   <select id="metricA">
+    <option value="population">EA population</option>
+    <option value="households">EA households</option>
+    <option value="density">EA population density</option>
+    <option value="settlementMale">Settlement males</option>
+    <option value="settlementFemale">Settlement females</option>
+    <option value="settlementTotal">Settlement total population</option>
+    <option value="settlementRatio">Settlement sex ratio</option>
+    <option value="districtMale">District males</option>
+    <option value="districtFemale">District females</option>
+    <option value="districtTotal">District total population</option>
+    <option value="districtRatio">District sex ratio</option>
+   </select>
+   <label for="metricB">Comparison metric</label>
+   <select id="metricB">
+    <option value="households">EA households</option>
+    <option value="population">EA population</option>
+    <option value="density">EA population density</option>
+    <option value="settlementMale">Settlement males</option>
+    <option value="settlementFemale">Settlement females</option>
+    <option value="settlementTotal">Settlement total population</option>
+    <option value="settlementRatio">Settlement sex ratio</option>
+    <option value="districtMale">District males</option>
+    <option value="districtFemale">District females</option>
+    <option value="districtTotal">District total population</option>
+    <option value="districtRatio">District sex ratio</option>
+   </select>
+   <label for="compareMode">Comparison mode</label>
+   <select id="compareMode">
+    <option value="side">Compare values side by side</option>
+    <option value="difference">Difference (A − B)</option>
+    <option value="percent">Percentage difference ((A − B) / B)</option>
+    <option value="share">Share of primary metric (%)</option>
+   </select>
+   <label for="groupBy">Group by</label>
+   <select id="groupBy">
+    <option value="lga">LGA / Municipality</option>
+    <option value="district">District</option>
+    <option value="ward">Ward</option>
+    <option value="ea">Enumeration Area</option>
+    <option value="settlement">Settlement</option>
+    <option value="districtCSV">District CSV records</option>
+   </select>
+   <label for="topN">Categories to display</label>
+   <select id="topN">
+    <option value="5">Top 5</option><option value="10" selected>Top 10</option>
+    <option value="15">Top 15</option><option value="25">Top 25</option>
+    <option value="50">Top 50</option>
+   </select>
+   <label style="display:flex;gap:7px;align-items:center"><input type="checkbox" id="showComparison" checked> Show comparison metric</label>
+   <div class="small">Selecting a widget automatically refreshes the chart and statistics.</div>
+   <div class="button-row">
+    <button onclick="renderCharts()">Update charts</button>
+    <button class="secondary" onclick="exportChart()">Download PNG</button>
+   </div>
+  </div>
+
+  <div class="section">
+   <h3>TABLE WIDGETS</h3>
+   <label for="tableDataset">Dataset</label>
+   <select id="tableDataset">
+    <option value="ea">Filtered EAs</option>
+    <option value="settlement">Settlement CSV</option>
+    <option value="district">District CSV</option>
+   </select>
+   <label for="tableSearch">Search records</label>
+   <input id="tableSearch" type="search" placeholder="Search in table">
+   <label for="tableLimit">Rows to show</label>
+   <select id="tableLimit"><option>25</option><option selected>50</option><option>100</option><option>250</option></select>
+   <div class="button-row">
+    <button onclick="renderTable()">Refresh table</button>
+    <button class="secondary" onclick="exportTable()">Export table CSV</button>
+   </div>
+  </div>
+
+ </div>
+</section>
+
+<!-- MAP PANEL -->
+<section class="panel">
+ <div class="panel-heading">2. Interactive Map & GPS</div>
+ <div class="map-controls">
+  <select id="quickLayer" aria-label="Map layer">
+   <option value="boundary">EA boundaries</option>
+   <option value="population">Population</option>
+   <option value="households">Households</option>
+   <option value="density">Population density</option>
+  </select>
+  <select id="quickBase" aria-label="Basemap">
+   <option value="street">Street</option>
+   <option value="light">Light</option>
+   <option value="satellite">Satellite</option>
+   <option value="terrain">Terrain</option>
+  </select>
+  <button class="secondary" onclick="fitSelection()">Fit selection</button>
+ </div>
+ <div id="map"></div>
+ <div class="map-footer">
+  <div class="legend-title">Map legend</div>
+  <div id="legend" class="legend-items">
+   <span class="legend-item"><span class="swatch" style="background:#dbeafe"></span>Enumeration areas</span>
+  </div>
+  <div id="mapInfo" class="small" style="margin-top:8px">Load the EA GeoJSON to display boundaries.</div>
+ </div>
+</section>
+
+<!-- ANALYTICS PANEL -->
+<section class="panel analytics-panel">
+ <div class="panel-heading">3. Live Statistics & Comparative Analytics</div>
+ <div class="panel-body scroll-panel">
+
+  <div class="section">
+   <h3>LIVE KEY INDICATORS</h3>
+   <div class="kpi-grid">
+    <div class="kpi"><div class="label">FILTERED EAs</div><div class="value" id="kEA">—</div><div class="sub">Matching features</div></div>
+    <div class="kpi"><div class="label">EA POPULATION</div><div class="value" id="kPop">—</div><div class="sub">Sum of selected field</div></div>
+    <div class="kpi"><div class="label">EA HOUSEHOLDS</div><div class="value" id="kHH">—</div><div class="sub">Sum of selected field</div></div>
+    <div class="kpi"><div class="label">MEAN EA POPULATION</div><div class="value" id="kMean">—</div><div class="sub">Average per numeric EA</div></div>
+    <div class="kpi"><div class="label">SETTLEMENT RECORDS</div><div class="value" id="kSettlement">—</div><div class="sub">Loaded CSV records</div></div>
+    <div class="kpi"><div class="label">DISTRICT RECORDS</div><div class="value" id="kDistrict">—</div><div class="sub">Loaded CSV records</div></div>
+   </div>
+   <div id="analyticsStatus" class="status">Load your datasets to begin.</div>
+  </div>
+
+  <div class="section">
+   <h3>COMPARISON SUMMARY</h3>
+   <table class="stats-table"><tbody id="comparisonStats">
+    <tr><td>Primary metric total</td><td>—</td></tr>
+    <tr><td>Comparison metric total</td><td>—</td></tr>
+    <tr><td>Difference</td><td>—</td></tr>
+    <tr><td>Percentage difference</td><td>—</td></tr>
+   </tbody></table>
+   <div id="comparisonNote" class="chart-caption">Select metrics to calculate comparisons.</div>
+  </div>
+
+  <div class="section">
+   <h3>ADVANCED COMPARISON CHART</h3>
+   <div id="chartTitle" class="widget-title">Select metrics to compare</div>
+   <div class="chart-box"><canvas id="chart"></canvas></div>
+   <div id="chartNote" class="chart-caption"></div>
+  </div>
+
+  <div class="section">
+   <h3>DESCRIPTIVE STATISTICS — EA POPULATION</h3>
+   <table class="stats-table"><tbody id="descStats"></tbody></table>
+  </div>
+
+  <div class="section">
+   <h3>SEX RATIO INDICATORS</h3>
+   <div class="kpi-grid">
+    <div class="kpi"><div class="label">SETTLEMENT SEX RATIO</div><div class="value" id="sRatio">—</div><div class="sub">Males per 100 females</div></div>
+    <div class="kpi"><div class="label">DISTRICT SEX RATIO</div><div class="value" id="dRatio">—</div><div class="sub">Males per 100 females</div></div>
+   </div>
+   <div id="ratioNote" class="chart-caption"></div>
+  </div>
+
+  <div class="section">
+   <h3>DATA QUALITY & COMPLETENESS</h3>
+   <div id="quality" class="small">No data loaded.</div>
+  </div>
+
+  <div class="section">
+   <h3>DATA TABLE</h3>
+   <div id="tableInfo" class="small" style="margin-bottom:7px">No records loaded.</div>
+   <div class="table-wrap">
+    <table class="data-table"><thead id="tableHead"></thead><tbody id="tableBody"></tbody></table>
+   </div>
+  </div>
+
+ </div>
+</section>
+</div>
+
+<footer>
+ <strong>GBoS GEOAI — Advanced Census & GPS Explorer</strong><br>
+ Produced by Ansu Singhateh · GIS Analyst | GIS / Cartography Unit | Gambia Bureau of Statistics (GBoS).<br>
+ Purpose: research, statistical exploration, census mapping and educational use.<br>
+ Technology: Leaflet, Chart.js, PapaParse and online basemap providers.<br>
+ Data caution: outputs depend on source coverage, definitions, reference dates and attribute quality. Do not combine totals from different geographic levels without verifying that their coverage and definitions are compatible.
+</footer>
+
+<script>
+"use strict";
+
+const S={
+ ea:[],geo:null,settlement:[],district:[],
+ map:null,layers:{},base:null,geoLayer:null,gpsMarker:null,gpsCircle:null,
+ gps:null,chart:null,filtered:[]
+};
+const COLORS=["#1769aa","#e07a1f","#078080","#7c3aed","#d94676","#65a30d","#0891b2","#9333ea","#ca8a04","#475569","#0f766e","#be123c","#4f46e5","#ea580c","#15803d"];
+const $=id=>document.getElementById(id);
+
+function norm(v){return String(v??"").trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]/g,"")}
+function num(v){
+ if(v===null||v===undefined||String(v).trim()===""||String(v).trim()==="-")return null;
+ const n=Number(String(v).replace(/,/g,"").trim());return Number.isFinite(n)?n:null
+}
+function fmt(v,d=0){return v===null||v===undefined||!Number.isFinite(Number(v))?"—":Number(v).toLocaleString("en-US",{maximumFractionDigits:d})}
+function esc(v){return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
+function props(f){return f&&f.properties&&typeof f.properties==="object"?f.properties:{}}
+function get(o,candidates){
+ const keys=Object.keys(o||{});
+ for(const c of candidates){
+  if(o[c]!==undefined&&o[c]!==null&&o[c]!=="")return o[c];
+  const k=keys.find(k=>norm(k)===norm(c));
+  if(k&&o[k]!==undefined&&o[k]!==null&&o[k]!=="")return o[k]
+ }
+ return null
+}
+function eaVal(f,type){
+ const p=props(f);
+ const c={
+  lga:["lganame","lga","LGA_Name","municipality","localgovernmentarea"],
+  district:["distname","district","districtname","district_name"],
+  ward:["wardname","ward","ward_name"],
+  ea:["feacode","eaname","ea_code","EA","enumerationarea","enumeration_area","eaid","id"]
+ };
+ return String(get(p,c[type]||[])??"Unknown")
+}
+function eaNum(f,metric){
+ const p=props(f);
+ if(metric==="density"){
+  const pop=eaNum(f,"population");
+  const area=num(get(p,["Area_sqkm","area_sqkm","area_km2","area_sq_km","area"]));
+  return pop!==null&&area!==null&&area>0?pop/area:null
+ }
+ const fields={
+  population:["sum_pop","map_pop","enum_pop","population","pop_total","total_population","pop"],
+  households:["sum_hhs","map_hhs","enum_hhs","households","hh_total","total_households","hh"]
+ };
+ return num(get(p,fields[metric]||[]))
+}
+function sum(a){const x=a.filter(v=>v!==null&&Number.isFinite(v));return x.length?x.reduce((s,v)=>s+v,0):null}
+function avg(a){const x=a.filter(v=>v!==null&&Number.isFinite(v));return x.length?sum(x)/x.length:null}
+function med(a){const x=a.filter(v=>v!==null&&Number.isFinite(v)).sort((a,b)=>a-b);if(!x.length)return null;const m=Math.floor(x.length/2);return x.length%2?x[m]:(x[m-1]+x[m])/2}
+function sd(a){const x=a.filter(v=>v!==null&&Number.isFinite(v));if(x.length<2)return null;const m=avg(x);return Math.sqrt(x.reduce((s,v)=>s+(v-m)**2,0)/(x.length-1))}
+function status(id,msg,type=""){const e=$(id);e.className="status"+(type?" "+type:"");e.textContent=msg}
+function unique(a){return [...new Set(a.map(v=>String(v??"").trim()).filter(v=>v&&v!=="Unknown"))].sort((a,b)=>a.localeCompare(b,undefined,{numeric:true,sensitivity:"base"}))}
+function selectOptions(id,values,placeholder,keep=""){
+ const e=$(id);const old=keep||e.value;e.innerHTML="";
+ const first=document.createElement("option");first.value="";first.textContent=placeholder;e.appendChild(first);
+ values.forEach(v=>{const o=document.createElement("option");o.value=v;o.textContent=v;e.appendChild(o)});
+ e.value=values.includes(old)?old:"";e.disabled=!values.length
+}
+
+/* Map */
+function initMap(){
+ if(typeof L==="undefined"){$("map").textContent="Leaflet failed to load. Check your internet connection.";return}
+ S.map=L.map("map",{preferCanvas:true}).setView([13.45,-16.55],8);
+ S.layers.street=L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:"© OpenStreetMap contributors"});
+ S.layers.light=L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",{maxZoom:20,attribution:"© OpenStreetMap © CARTO"});
+ S.layers.satellite=L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",{maxZoom:19,attribution:"Tiles © Esri"});
+ S.layers.terrain=L.tileLayer("https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png",{maxZoom:17,attribution:"© OpenTopoMap"});
+ S.base=S.layers.street;S.base.addTo(S.map)
+}
+function setBase(name){
+ if(!S.map)return;if(S.base)S.map.removeLayer(S.base);
+ S.base=S.layers[name]||S.layers.street;S.base.addTo(S.map);S.base.bringToBack()
+}
+function ramp(v,max){
+ if(v===null||v===undefined||!Number.isFinite(v))return "#cbd5e1";
+ const t=max>0?Math.max(0,Math.min(1,v/max)):0;
+ return t<.25?"#fff7bc":t<.5?"#fec44f":t<.75?"#fe9929":"#cc4c02"
+}
+function styleFeature(f){
+ const metric=$("mapMetric").value,mode=$("boundaryStyle").value;
+ let color="#1769aa",fillColor="#dbeafe",fillOpacity=mode==="filled"?.4:.12,weight=mode==="bold"?2:1;
+ if(metric!=="boundary"){
+  const vals=S.filtered.map(f=>eaNum(f,metric)).filter(v=>v!==null);
+  color=ramp(eaNum(f,metric),vals.length?Math.max(...vals):1);fillColor=color;fillOpacity=.75
+ }
+ return {color,fillColor,weight,fillOpacity}
+}
+function renderMap(zoom){
+ if(!S.map)return;
+ if(S.geoLayer){S.map.removeLayer(S.geoLayer);S.geoLayer=null}
+ const features=S.filtered;
+ if(!features.length){
+  $("mapInfo").textContent="No matching EAs. Load GeoJSON or clear the filters.";legend();return
+ }
+ S.geoLayer=L.geoJSON({type:"FeatureCollection",features},{
+  renderer:L.canvas({padding:.5}),style:styleFeature,
+  onEachFeature:(f,l)=>{
+   const p=props(f);
+   const rows=[["LGA",eaVal(f,"lga")],["District",eaVal(f,"district")],["Ward",eaVal(f,"ward")],["EA code",eaVal(f,"ea")],["Population",fmt(eaNum(f,"population"))],["Households",fmt(eaNum(f,"households"))],["Density / km²",fmt(eaNum(f,"density"),2)]];
+   l.bindPopup("<b>Enumeration Area</b><table>"+rows.map(r=>"<tr><td style='padding:3px 7px 3px 0'><b>"+esc(r[0])+"</b></td><td>"+esc(r[1])+"</td></tr>").join("")+"</table>");
+   l.on("mouseover",function(){this.setStyle({weight:3,color:"#111827"})});
+   l.on("mouseout",function(){if(S.geoLayer)S.geoLayer.resetStyle(this)})
+  }
+ }).addTo(S.map);
+ legend();$("mapInfo").textContent=fmt(features.length)+" EA polygons displayed · "+$("mapMetric").selectedOptions[0].text;
+ if(zoom&&$("autoZoom").checked)fitSelection(false)
+}
+function legend(){
+ const m=$("mapMetric").value;
+ $("legend").innerHTML=m==="boundary"
+ ?'<span class="legend-item"><span class="swatch" style="background:#dbeafe"></span>EA polygon</span><span class="legend-item"><span class="swatch" style="background:#1769aa"></span>Boundary</span>'
+ :'<span class="legend-item"><span class="swatch" style="background:#fff7bc"></span>Lower</span><span class="legend-item"><span class="swatch" style="background:#fec44f"></span>Low–moderate</span><span class="legend-item"><span class="swatch" style="background:#fe9929"></span>Moderate–high</span><span class="legend-item"><span class="swatch" style="background:#cc4c02"></span>Higher</span><span class="legend-item"><span class="swatch" style="background:#cbd5e1"></span>Missing</span>'
+}
+function fitSelection(show=true){
+ if(!S.map||!S.filtered.length){if(show)status("analyticsStatus","No EA features available to zoom to.","warning");return}
+ const l=L.geoJSON({type:"FeatureCollection",features:S.filtered});const b=l.getBounds();if(b.isValid())S.map.fitBounds(b.pad(.08),{maxZoom:14})
+}
+function zoomGambia(){if(S.map)S.map.setView([13.45,-16.55],8)}
+
+/* Cascading filters */
+function initFilters(){
+ selectOptions("lga",unique(S.ea.map(f=>eaVal(f,"lga"))),"All LGAs","");
+ updateDistricts()
+}
+function updateDistricts(){
+ const lga=$("lga").value;
+ const rows=S.ea.filter(f=>!lga||norm(eaVal(f,"lga"))===norm(lga));
+ selectOptions("district",unique(rows.map(f=>eaVal(f,"district"))),"All districts","");
+ updateWards()
+}
+function updateWards(){
+ const lga=$("lga").value,d=$("district").value;
+ const rows=S.ea.filter(f=>(!lga||norm(eaVal(f,"lga"))===norm(lga))&&(!d||norm(eaVal(f,"district"))===norm(d)));
+ selectOptions("ward",unique(rows.map(f=>eaVal(f,"ward"))),"All wards","")
+}
+function filterEAs(){
+ const lga=$("lga").value,d=$("district").value,w=$("ward").value,q=norm($("searchEA").value);
+ return S.ea.filter(f=>{
+  if(lga&&norm(eaVal(f,"lga"))!==norm(lga))return false;
+  if(d&&norm(eaVal(f,"district"))!==norm(d))return false;
+  if(w&&norm(eaVal(f,"ward"))!==norm(w))return false;
+  if(q&&!norm([eaVal(f,"lga"),eaVal(f,"district"),eaVal(f,"ward"),eaVal(f,"ea"),...Object.values(props(f)).slice(0,12)].join(" ")).includes(q))return false;
+  return true
+ })
+}
+function refreshDashboard(zoom=false){
+ S.filtered=filterEAs();
+ try{renderMap(zoom)}catch(e){console.error(e);status("analyticsStatus","Map error: "+e.message,"error")}
+ updateKPIs();updateDesc();updateQuality();updateRatios();renderCharts();renderTable();
+ const parts=[];if($("lga").value)parts.push("LGA "+$("lga").value);if($("district").value)parts.push("District "+$("district").value);if($("ward").value)parts.push("Ward "+$("ward").value);if($("searchEA").value)parts.push("Search "+$("searchEA").value);
+ $("filterStatus").textContent=(parts.length?parts.join(" · "):"All EAs")+" | "+fmt(S.filtered.length)+" matching features"
+}
+function clearFilters(){
+ $("lga").value="";updateDistricts();$("district").value="";updateWards();$("ward").value="";$("searchEA").value="";refreshDashboard(true)
+}
+
+/* Load data */
+function readFile(file,cb){
+ if(!file)return;
+ const r=new FileReader();r.onload=()=>cb(String(r.result||""));r.onerror=()=>status("analyticsStatus","Unable to read "+file.name,"error");r.readAsText(file)
+}
+function loadEA(file){
+ readFile(file,text=>{
+  try{
+   const g=JSON.parse(text);if(g.type!=="FeatureCollection"||!Array.isArray(g.features))throw Error("Expected a GeoJSON FeatureCollection.");
+   S.geo=g;S.ea=g.features.filter(f=>f&&f.geometry);
+   status("eaStatus",file.name+" · "+fmt(S.ea.length)+" EA features loaded","success");
+   initFilters();refreshDashboard(true)
+  }catch(e){status("eaStatus",e.message,"error")}
+ })
+}
+function csvRows(text){
+ if(typeof Papa==="undefined")throw Error("PapaParse did not load. Check internet access.");
+ return Papa.parse(text,{skipEmptyLines:"greedy",dynamicTyping:false}).data.filter(r=>Array.isArray(r)&&r.some(v=>String(v??"").trim()!==""))
+}
+function loadSettlement(file){
+ readFile(file,text=>{
+  try{
+   const rows=csvRows(text);if(!rows.length)throw Error("CSV is empty.");
+   const h=rows[0].map(v=>String(v??"").trim()),h2=(rows[1]||[]).map(v=>String(v??"").trim());
+   const multi=h2.some(v=>["male","female"].includes(norm(v)));
+   let headers=h.map((v,i)=>h2[i]||v||"Column"+(i+1));
+   const find=(arr,tests)=>arr.findIndex(v=>tests.includes(norm(v)));
+   let li=find(h.map(norm),["lga","municipality","localgovernmentarea"]);if(li<0)li=0;
+   let si=find(h.map(norm),["settlementname","settlement","nameofsettlement"]);if(si<0)si=1;
+   let mi=headers.findIndex(v=>norm(v)==="male"),fi=headers.findIndex(v=>norm(v)==="female"),ti=headers.findIndex(v=>norm(v)==="total");
+   if(mi<0)mi=2;if(fi<0)fi=3;if(ti<0)ti=4;
+   S.settlement=[];
+   for(let i=multi?2:1;i<rows.length;i++){
+    const r=rows[i],lga=String(r[li]??"").trim(),settlement=String(r[si]??"").trim();
+    if(!lga&&!settlement||norm(settlement)==="total"||norm(lga)==="total")continue;
+    const male=num(r[mi]),female=num(r[fi]),total=num(r[ti]);
+    S.settlement.push({LGA:lga||"Unknown",Settlement:settlement||"Unknown",Male:male,Female:female,Total:total??(male!==null||female!==null?(male||0)+(female||0):null),SexRatio:male!==null&&female>0?100*male/female:null})
+   }
+   status("settlementStatus",file.name+" · "+fmt(S.settlement.length)+" records","success");refreshDashboard(false)
+  }catch(e){status("settlementStatus",e.message,"error")}
+ })
+}
+function loadDistrict(file){
+ readFile(file,text=>{
+  try{
+   const rows=csvRows(text),h=rows[0].map(v=>String(v??"").trim()),idx=names=>h.findIndex(v=>names.some(n=>norm(v)===norm(n)));
+   const di=idx(["district","districtname","district_name"]),mi=idx(["male"]),fi=idx(["female"]),ti=idx(["total","population","totalpopulation"]);
+   if(di<0)throw Error("Could not identify the District column.");
+   S.district=rows.slice(1).map(r=>{
+    const male=mi>=0?num(r[mi]):null,female=fi>=0?num(r[fi]):null,total=ti>=0?num(r[ti]):(male!==null||female!==null?(male||0)+(female||0):null);
+    return {District:String(r[di]??"").trim(),Male:male,Female:female,Total:total,SexRatio:male!==null&&female>0?100*male/female:null}
+   }).filter(r=>r.District&&norm(r.District)!=="total");
+   status("districtStatus",file.name+" · "+fmt(S.district.length)+" records","success");refreshDashboard(false)
+  }catch(e){status("districtStatus",e.message,"error")}
+ })
+}
+
+/* Metric retrieval and comparison */
+const METRICS={
+ population:{label:"EA population",source:"ea",field:"population"},
+ households:{label:"EA households",source:"ea",field:"households"},
+ density:{label:"EA population density",source:"ea",field:"density"},
+ settlementMale:{label:"Settlement males",source:"settlement",field:"Male"},
+ settlementFemale:{label:"Settlement females",source:"settlement",field:"Female"},
+ settlementTotal:{label:"Settlement total population",source:"settlement",field:"Total"},
+ settlementRatio:{label:"Settlement sex ratio",source:"settlement",field:"SexRatio"},
+ districtMale:{label:"District males",source:"district",field:"Male"},
+ districtFemale:{label:"District females",source:"district",field:"Female"},
+ districtTotal:{label:"District total population",source:"district",field:"Total"},
+ districtRatio:{label:"District sex ratio",source:"district",field:"SexRatio"}
+};
+function metricRows(key){
+ const m=METRICS[key];
+ if(m.source==="ea"){
+  return S.filtered.map(f=>({
+   label:eaVal(f,$("groupBy").value==="district"?"district":$("groupBy").value==="ward"?"ward":$("groupBy").value==="ea"?"ea":"lga"),
+   value:eaNum(f,m.field)
+  })).filter(r=>r.value!==null&&r.label!=="Unknown")
+ }
+ if(m.source==="settlement"){
+  return S.settlement.map(r=>({label:$("groupBy").value==="lga"?r.LGA:r.Settlement,value:r[m.field]}))
+   .filter(r=>r.value!==null&&r.value!==undefined&&Number.isFinite(r.value)&&r.label)
+ }
+ return S.district.map(r=>({label:r.District,value:r[m.field]}))
+  .filter(r=>r.value!==null&&r.value!==undefined&&Number.isFinite(r.value)&&r.label)
+}
+function aggregate(rows){
+ const m=new Map();
+ rows.forEach(r=>{
+  const k=String(r.label);if(!m.has(k))m.set(k,{sum:0,count:0});
+  const x=m.get(k);x.sum+=r.value;x.count++
+ });
+ return [...m.entries()].map(([label,o])=>({label,value:o.sum,count:o.count})).sort((a,b)=>b.value-a.value)
+}
+function chartDataset(key,labels){
+ const groups=aggregate(metricRows(key)),map=new Map(groups.map(r=>[r.label,r.value]));
+ return labels.map(l=>map.has(l)?map.get(l):0)
+}
+function renderCharts(){
+ if(typeof Chart==="undefined")return;
+ const a=$("metricA").value,b=$("metricB").value,mode=$("compareMode").value;
+ const ga=aggregate(metricRows(a)),gb=aggregate(metricRows(b));
+ const top=Number($("topN").value)||10;
+ const labels=ga.slice(0,top).map(r=>r.label);
+ const av=labels.map(l=>{const r=ga.find(x=>x.label===l);return r?r.value:0});
+ const bmap=new Map(gb.map(r=>[r.label,r.value]));
+ const bv=labels.map(l=>bmap.get(l)??0);
+ let datasets=[];
+ const showB=$("showComparison").checked;
+
+ if(mode==="side"){
+  datasets=[{label:METRICS[a].label,data:av,backgroundColor:"#1769aa",borderColor:"#1769aa"},
+   ...(showB?[{label:METRICS[b].label,data:bv,backgroundColor:"#e07a1f",borderColor:"#e07a1f"}]:[])]
+ }else{
+  let vals=av.map((v,i)=>{
+   const w=bv[i];
+   if(mode==="difference")return v-w;
+   if(mode==="percent")return w!==0?100*(v-w)/Math.abs(w):null;
+   const total=sum(av);return total?100*v/total:0
+  });
+  datasets=[{label:mode==="difference"?"Difference (A − B)":mode==="percent"?"Percentage difference (%)":"Primary metric share (%)",data:vals,backgroundColor:labels.map((_,i)=>COLORS[i%COLORS.length]),borderColor:labels.map((_,i)=>COLORS[i%COLORS.length])}]
+ }
+ const type=$("chartType").value;
+ if(S.chart){S.chart.destroy();S.chart=null}
+ const ctx=$("chart").getContext("2d");
+ const isScatter=type==="scatter";
+ let chartData;
+ if(isScatter){
+  chartData={datasets:[{label:METRICS[a].label+" vs "+METRICS[b].label,
+   data:labels.map((label,i)=>({x:av[i],y:bv[i],label})),
+   backgroundColor:"#1769aa",pointRadius:5}]}
+ }else chartData={labels,datasets};
+
+ S.chart=new Chart(ctx,{
+  type:isScatter?"scatter":type,data:chartData,
+  options:{
+   responsive:true,maintainAspectRatio:false,
+   plugins:{
+    legend:{display:type!=="bar"||datasets.length>1,position:"bottom"},
+    tooltip:{callbacks:{label:c=>{
+     if(isScatter){const p=c.raw;return p.label+": "+METRICS[a].label+" "+fmt(p.x,2)+"; "+METRICS[b].label+" "+fmt(p.y,2)}
+     return (c.dataset.label||"Value")+": "+fmt(c.parsed.y??c.parsed,2)
+    }}}
+   },
+   scales:["pie","doughnut","polarArea","radar"].includes(type)?{}:{
+    x:{title:{display:true,text:isScatter?METRICS[a].label:"Geographic category"},ticks:{autoSkip:true,maxRotation:45}},
+    y:{beginAtZero:mode==="side",title:{display:true,text:isScatter?METRICS[b].label:mode==="percent"||mode==="share"?"Percent (%)":"Value"}}
+   }
+  }
+ });
+ $("chartTitle").textContent=METRICS[a].label+(mode==="side"&&showB?" vs "+METRICS[b].label:"");
+ $("chartNote").textContent="Groups shown: "+labels.length+". Chart groups are aggregated by the selected geography. For sex ratios, compare individual geographic values; summing sex ratios does not produce a meaningful overall ratio.";
+ updateComparisonStats(ga,gb,labels,av,bv,mode)
+}
+function updateComparisonStats(ga,gb,labels,av,bv,mode){
+ const ta=sum(ga.map(r=>r.value)),tb=sum(gb.map(r=>r.value));
+ const diff=ta!==null&&tb!==null?ta-tb:null,pct=tb?100*(ta-tb)/Math.abs(tb):null;
+ const rows=[
+  ["Primary metric total",fmt(ta,2)],
+  ["Comparison metric total",fmt(tb,2)],
+  ["Difference (A − B)",fmt(diff,2)],
+  ["Percentage difference",pct===null?"—":fmt(pct,2)+"%"],
+  ["Categories compared",fmt(labels.length)]
+ ];
+ $("comparisonStats").innerHTML=rows.map(r=>"<tr><td>"+esc(r[0])+"</td><td>"+esc(r[1])+"</td></tr>").join("");
+ $("comparisonNote").textContent=mode==="share"
+ ?"Share mode calculates each displayed category as a percentage of the primary metric total.":"Totals may only be interpreted as direct comparisons when the metrics have compatible units, coverage and geographic meaning."
+}
+
+/* Statistics */
+function updateKPIs(){
+ const p=S.filtered.map(f=>eaNum(f,"population")),h=S.filtered.map(f=>eaNum(f,"households"));
+ $("kEA").textContent=fmt(S.filtered.length);$("kPop").textContent=fmt(sum(p));$("kHH").textContent=fmt(sum(h));
+ $("kMean").textContent=fmt(avg(p),1);$("kSettlement").textContent=fmt(S.settlement.length);$("kDistrict").textContent=fmt(S.district.length);
+ status("analyticsStatus",S.ea.length||S.settlement.length||S.district.length?"Dashboard updated.":"Load your datasets to begin.",S.ea.length||S.settlement.length||S.district.length?"success":"warning")
+}
+function updateDesc(){
+ const v=S.filtered.map(f=>eaNum(f,"population")).filter(x=>x!==null);
+ const rows=[
+  ["Numeric EA records",fmt(v.length)],
+  ["Missing population",fmt(S.filtered.length-v.length)],
+  ["Total population",fmt(sum(v))],
+  ["Minimum",fmt(v.length?Math.min(...v):null,2)],
+  ["Maximum",fmt(v.length?Math.max(...v):null,2)],
+  ["Mean",fmt(avg(v),2)],
+  ["Median",fmt(med(v),2)],
+  ["Standard deviation",fmt(sd(v),2)]
+ ];
+ $("descStats").innerHTML=rows.map(r=>"<tr><td>"+esc(r[0])+"</td><td>"+esc(r[1])+"</td></tr>").join("")
+}
+function updateRatios(){
+ const sm=sum(S.settlement.map(r=>r.Male)),sf=sum(S.settlement.map(r=>r.Female));
+ const dm=sum(S.district.map(r=>r.Male)),df=sum(S.district.map(r=>r.Female));
+ $("sRatio").textContent=sm!==null&&sf>0?fmt(100*sm/sf,2):"—";
+ $("dRatio").textContent=dm!==null&&df>0?fmt(100*dm/df,2):"—";
+ $("ratioNote").textContent="Settlement ratio uses loaded settlement records. District ratio uses loaded district records. Ratios are males per 100 females."
+}
+function updateQuality(){
+ const a=S.filtered,valid=key=>a.filter(f=>eaNum(f,key)!==null).length;
+ const validLga=a.filter(f=>eaVal(f,"lga")!=="Unknown").length;
+ const validD=a.filter(f=>eaVal(f,"district")!=="Unknown").length;
+ const validW=a.filter(f=>eaVal(f,"ward")!=="Unknown").length;
+ $("quality").innerHTML=[
+  "<div><span class='badge'>Total EA features: "+fmt(S.ea.length)+"</span></div>",
+  "<div>Filtered features: "+fmt(a.length)+"</div>",
+  "<div>LGA values identified: "+fmt(validLga)+" / "+fmt(a.length)+"</div>",
+  "<div>District values identified: "+fmt(validD)+" / "+fmt(a.length)+"</div>",
+  "<div>Ward values identified: "+fmt(validW)+" / "+fmt(a.length)+"</div>",
+  "<div>Numeric population: "+fmt(valid("population"))+" / "+fmt(a.length)+"</div>",
+  "<div>Numeric households: "+fmt(valid("households"))+" / "+fmt(a.length)+"</div>",
+  "<div>Settlement records: "+fmt(S.settlement.length)+"</div>",
+  "<div>District records: "+fmt(S.district.length)+"</div>",
+  "<div style='margin-top:7px;color:#64748b'>Completeness checks identify missing fields; they do not validate statistical accuracy.</div>"
+ ].join("")
+}
+
+/* Table */
+function tableRows(){
+ const type=$("tableDataset").value;
+ if(type==="settlement")return S.settlement;
+ if(type==="district")return S.district;
+ return S.filtered.map(f=>props(f))
+}
+function renderTable(){
+ const all=tableRows(),q=norm($("tableSearch").value);
+ const rows=all.filter(r=>!q||norm(Object.values(r).join(" ")).includes(q));
+ const limit=Number($("tableLimit").value)||50,shown=rows.slice(0,limit);
+ let headers=shown.length?Object.keys(shown[0]):[];
+ if(!headers.length&&$("tableDataset").value==="settlement")headers=["LGA","Settlement","Male","Female","Total","SexRatio"];
+ if(!headers.length&&$("tableDataset").value==="district")headers=["District","Male","Female","Total","SexRatio"];
+ $("tableHead").innerHTML=headers.map(h=>"<th>"+esc(h)+"</th>").join("");
+ $("tableBody").innerHTML=shown.map(r=>"<tr>"+headers.map(h=>"<td>"+esc(fmtMaybe(r[h]))+"</td>").join("")+"</tr>").join("");
+ $("tableInfo").textContent="Showing "+fmt(shown.length)+" of "+fmt(rows.length)+" matching records."
+}
+function fmtMaybe(v){return typeof v==="number"?fmt(v,2):v??"—"}
+
+/* GPS */
+function requestGPS(){
+ if(!navigator.geolocation){
+  status("gpsStatus","Geolocation is not supported by this browser.","error");return
+ }
+ status("gpsStatus","Requesting location permission…","warning");
+ navigator.geolocation.getCurrentPosition(pos=>{
+  const c=pos.coords;
+  S.gps={latitude:c.latitude,longitude:c.longitude,accuracy:c.accuracy,timestamp:new Date(pos.timestamp).toISOString()};
+  $("gpsLat").textContent=c.latitude.toFixed(7);
+  $("gpsLon").textContent=c.longitude.toFixed(7);
+  $("gpsAccuracy").textContent=fmt(c.accuracy,1)+" metres";
+  $("gpsTime").textContent=new Date(pos.timestamp).toLocaleString();
+  status("gpsStatus","GPS location acquired. Accuracy is estimated by the device.","success");
+  if(S.map){
+   if(S.gpsMarker)S.map.removeLayer(S.gpsMarker);
+   if(S.gpsCircle)S.map.removeLayer(S.gpsCircle);
+   S.gpsMarker=L.marker([c.latitude,c.longitude]).addTo(S.map).bindPopup(
+    "<b>Current GPS position</b><br>Lat: "+c.latitude.toFixed(7)+"<br>Lon: "+c.longitude.toFixed(7)+"<br>Accuracy: "+fmt(c.accuracy,1)+" m"
+   );
+   S.gpsCircle=L.circle([c.latitude,c.longitude],{radius:c.accuracy,color:"#7c3aed",fillColor:"#a78bfa",fillOpacity:.15,weight:1}).addTo(S.map);
+   S.map.setView([c.latitude,c.longitude],Math.max(S.map.getZoom(),15));S.gpsMarker.openPopup()
+  }
+ },err=>{
+  const msgs={1:"Location permission was denied.",2:"Your position is currently unavailable.",3:"GPS request timed out."};
+  status("gpsStatus",(msgs[err.code]||"Unable to get GPS location.")+" Check browser permissions and location services.","error")
+ },{enableHighAccuracy:true,timeout:20000,maximumAge:0})
+}
+function clearGPS(){
+ S.gps=null;
+ if(S.map&&S.gpsMarker)S.map.removeLayer(S.gpsMarker);
+ if(S.map&&S.gpsCircle)S.map.removeLayer(S.gpsCircle);
+ S.gpsMarker=null;S.gpsCircle=null;
+ ["gpsLat","gpsLon","gpsAccuracy","gpsTime"].forEach(id=>$(id).textContent="—");
+ status("gpsStatus","GPS display cleared.")
+}
+async function copyGPS(){
+ if(!S.gps){status("gpsStatus","Get a GPS location first.","warning");return}
+ const text=S.gps.latitude.toFixed(7)+", "+S.gps.longitude.toFixed(7);
+ try{await navigator.clipboard.writeText(text);status("gpsStatus","Coordinates copied: "+text,"success")}
+ catch(e){status("gpsStatus","Clipboard access was blocked. Coordinates: "+text,"warning")}
+}
+function exportGPS(){
+ if(!S.gps){status("gpsStatus","Get a GPS location before exporting.","warning");return}
+ downloadCSV("GBoS_GEOAI_GPS_Location.csv",[S.gps])
+}
+
+/* Exports */
+function blobDownload(filename,content,mime){
+ const url=URL.createObjectURL(new Blob([content],{type:mime}));const a=document.createElement("a");
+ a.href=url;a.download=filename;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000)
+}
+function downloadCSV(filename,rows){
+ if(!rows.length){status("analyticsStatus","No records available for export.","warning");return}
+ if(typeof Papa==="undefined"){status("analyticsStatus","CSV library did not load.","error");return}
+ blobDownload(filename,Papa.unparse(rows,{quotes:true}),"text/csv;charset=utf-8;")
+}
+function downloadFilteredEAs(){
+ blobDownload("GBoS_GEOAI_Filtered_EAs.geojson",JSON.stringify({type:"FeatureCollection",name:"GBoS_GEOAI_Filtered_EAs",features:S.filtered},null,2),"application/geo+json")
+}
+function downloadSummary(){
+ const p=S.filtered.map(f=>eaNum(f,"population")),h=S.filtered.map(f=>eaNum(f,"households"));
+ downloadCSV("GBoS_GEOAI_Statistics.csv",[
+  {Statistic:"Filtered EA count",Value:S.filtered.length,Unit:"features"},
+  {Statistic:"Population total",Value:sum(p),Unit:"population"},
+  {Statistic:"Household total",Value:sum(h),Unit:"households"},
+  {Statistic:"Mean EA population",Value:avg(p),Unit:"population per EA"},
+  {Statistic:"Median EA population",Value:med(p),Unit:"population per EA"},
+  {Statistic:"Population standard deviation",Value:sd(p),Unit:"population per EA"},
+  {Statistic:"Settlement record count",Value:S.settlement.length,Unit:"records"},
+  {Statistic:"District record count",Value:S.district.length,Unit:"records"}
+ ])
+}
+function downloadAllData(){
+ blobDownload("GBoS_GEOAI_Dashboard_Data.json",JSON.stringify({
+  generatedAt:new Date().toISOString(),
+  filters:{lga:$("lga").value,district:$("district").value,ward:$("ward").value},
+  filteredEAs:{type:"FeatureCollection",features:S.filtered},
+  settlements:S.settlement,districts:S.district,gps:S.gps
+ },null,2),"application/json")
+}
+function exportTable(){downloadCSV("GBoS_GEOAI_Table.csv",tableRows().filter(r=>!norm($("tableSearch").value)||norm(Object.values(r).join(" ")).includes(norm($("tableSearch").value))))}
+function exportChart(){
+ if(!S.chart){status("analyticsStatus","There is no chart to export.","warning");return}
+ const a=document.createElement("a");a.href=$("chart").toDataURL("image/png",1);a.download="GBoS_GEOAI_Comparison_Chart.png";a.click()
+}
+function resetDashboard(){
+ $("lga").value="";updateDistricts();$("district").value="";updateWards();$("ward").value="";
+ $("searchEA").value="";$("mapMetric").value="boundary";$("quickLayer").value="boundary";
+ $("basemap").value="street";$("quickBase").value="street";$("boundaryStyle").value="standard";
+ $("metricA").value="population";$("metricB").value="households";$("compareMode").value="side";
+ $("chartType").value="bar";$("groupBy").value="lga";$("topN").value="10";$("showComparison").checked=true;
+ $("tableDataset").value="ea";$("tableSearch").value="";$("tableLimit").value="50";
+ setBase("street");refreshDashboard(true)
+}
+
+/* Widget event wiring: selecting a widget triggers a refresh. */
+function bindEvents(){
+ $("eaFile").addEventListener("change",e=>loadEA(e.target.files[0]));
+ $("eaInput").addEventListener("change",e=>loadEA(e.target.files[0]));
+ $("settlementFile").addEventListener("change",e=>loadSettlement(e.target.files[0]));
+ $("settlementInput").addEventListener("change",e=>loadSettlement(e.target.files[0]));
+ $("districtFile").addEventListener("change",e=>loadDistrict(e.target.files[0]));
+ $("districtInput").addEventListener("change",e=>loadDistrict(e.target.files[0]));
+
+ $("lga").addEventListener("change",()=>{updateDistricts();refreshDashboard(true)});
+ $("district").addEventListener("change",()=>{updateWards();refreshDashboard(true)});
+ $("ward").addEventListener("change",()=>refreshDashboard(true));
+ $("searchEA").addEventListener("input",()=>refreshDashboard(false));
+
+ $("mapMetric").addEventListener("change",()=>{$("quickLayer").value=$("mapMetric").value;refreshDashboard(false)});
+ $("quickLayer").addEventListener("change",()=>{$("mapMetric").value=$("quickLayer").value;refreshDashboard(false)});
+ $("basemap").addEventListener("change",()=>{$("quickBase").value=$("basemap").value;setBase($("basemap").value)});
+ $("quickBase").addEventListener("change",()=>{$("basemap").value=$("quickBase").value;setBase($("quickBase").value)});
+ $("boundaryStyle").addEventListener("change",()=>renderMap(false));
+
+ ["chartType","metricA","metricB","compareMode","groupBy","topN","showComparison"].forEach(id=>{
+  $(id).addEventListener("change",()=>{renderCharts()})
+ });
+ ["tableDataset","tableLimit"].forEach(id=>$(id).addEventListener("change",renderTable));
+ $("tableSearch").addEventListener("input",renderTable)
+}
+
+/* GitHub Pages/static hosting auto-loader. Keep data files beside index.html. */
+const REPOSITORY_DATA_FILES = {
+ ea: './Census_EAs_Geo.json',
+ settlement: './Settlement_Sex_Ratio.csv',
+ district: './District_Sex_Ratio.csv'
+};
+
+async function fetchRepositoryFile(path, label) {
+ const response = await fetch(path, {cache:'no-store'});
+ if (!response.ok) throw new Error(label + ' not found (' + response.status + '): ' + path);
+ const text = await response.text();
+ if (!text.trim()) throw new Error(label + ' is empty: ' + path);
+ return new File([text], path.split('/').pop() || label, {type:path.toLowerCase().endsWith('.json')?'application/geo+json':'text/csv'});
+}
+
+async function autoLoadRepositoryData() {
+ const results = [];
+ status('repoDataStatus','Loading datasets from the same folder as this dashboard…','warning');
+ const jobs = [
+  ['ea','Enumeration Area GeoJSON',loadEA,'eaStatus'],
+  ['district','District sex-ratio CSV',loadDistrict,'districtStatus'],
+  ['settlement','Settlement sex-ratio CSV',loadSettlement,'settlementStatus']
+ ];
+ for (const [key,label,loader,statusId] of jobs) {
+  try {
+   const file = await fetchRepositoryFile(REPOSITORY_DATA_FILES[key],label);
+   loader(file);
+   results.push(label + ': fetched');
+  } catch (error) {
+   const message = error && error.message ? error.message : String(error);
+   status(statusId,'Auto-load unavailable — ' + message + '. Upload the file manually or add it beside index.html.','warning');
+   results.push(label + ': not found');
+  }
+ }
+ const loaded = results.filter(x=>x.endsWith('fetched')).length;
+ status('repoDataStatus',loaded+' of '+jobs.length+' repository datasets fetched. '+results.join(' · '),loaded?'success':'warning');
+}
+
+function startup(){
+ initMap();bindEvents();
+ S.filtered=[];
+ updateKPIs();updateDesc();updateRatios();updateQuality();renderCharts();renderTable();legend()
+}
+startup();
+autoLoadRepositoryData();
+</script>
+</body>
+</html>
